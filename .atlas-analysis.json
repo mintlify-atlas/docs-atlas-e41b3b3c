@@ -1,0 +1,55 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "Greenseed",
+  "projectDescription": "A CLI tool to seed PostgreSQL databases from JSON files with idempotent upsert support.",
+  "theme": "palm",
+  "primaryColor": "#22c55e",
+  "lightColor": null,
+  "darkColor": null,
+  "navigation": {
+    "groups": [
+      {
+        "group": "Get Started",
+        "pages": [
+          "introduction",
+          "installation",
+          "quickstart"
+        ]
+      },
+      {
+        "group": "Commands",
+        "pages": [
+          "commands/push",
+          "commands/init"
+        ]
+      },
+      {
+        "group": "Configuration",
+        "pages": [
+          "configuration/overview",
+          "configuration/schema",
+          "configuration/tables"
+        ]
+      },
+      {
+        "group": "Guides",
+        "pages": [
+          "guides/upsert-behavior",
+          "guides/partial-indexes",
+          "guides/examples"
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Idempotent database seeding from JSON files",
+    "Configurable upsert behavior with conflict handling",
+    "Support for partial unique indexes with WHERE clauses",
+    "Batch processing for large datasets",
+    "Schema validation with type-safe configuration"
+  ],
+  "publicApiSurface": [
+    "greenseed push",
+    "greenseed init"
+  ]
+}
