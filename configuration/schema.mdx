@@ -1,0 +1,218 @@
+---
+title: Configuration schema
+description: Complete reference for all Greenseed configuration options
+---
+
+This page documents all available configuration options in the Greenseed config file.
+
+## Root configuration
+
+The configuration file is a JSON object with the following fields:
+
+<ParamField path="seedFileExtensions" type="array" required>
+  Array of allowed file extensions for seed data files.
+  
+  Currently only `".json"` is supported.
+  
+  ```json
+  "seedFileExtensions": [".json"]
+  ```
+</ParamField>
+
+<ParamField path="databaseUrlEnvVar" type="string" required>
+  Name of the environment variable containing your PostgreSQL connection string.
+  
+  Greenseed will read this environment variable to connect to your database.
+  
+  **Default (from init):** `"DATABASE_URL"`
+  
+  ```json
+  "databaseUrlEnvVar": "DATABASE_URL"
+  ```
+  
+  You can override this at runtime using the `--dbvar` flag:
+  
+  ```bash
+  greenseed push --dbvar STAGING_DATABASE_URL
+  ```
+</ParamField>
+
+<ParamField path="onMissingFile" type="enum" default="error">
+  How to handle missing seed files referenced in table configurations.
+  
+  **Options:**
+  - `"error"` - Throw an error and stop execution (default)
+  - `"skip"` - Skip the table and continue with remaining tables
+  
+  ```json
+  "onMissingFile": "skip"
+  ```
+</ParamField>
+
+<ParamField path="tables" type="array" required>
+  Array of table configurations defining which tables to seed and how.
+  
+  Each table configuration is an object with specific fields. See the [tables configuration guide](/configuration/tables) for detailed documentation.
+  
+  ```json
+  "tables": [
+    {
+      "table": "users",
+      "schema": "public",
+      "primaryKeys": ["id"],
+      "source": "./data/users.json"
+    }
+  ]
+  ```
+</ParamField>
+
+## Table configuration fields
+
+Each object in the `tables` array supports the following fields:
+
+<ParamField path="table" type="string" required>
+  Name of the database table to seed.
+  
+  ```json
+  "table": "users"
+  ```
+</ParamField>
+
+<ParamField path="schema" type="string" default="public">
+  Database schema containing the table.
+  
+  **Default:** `"public"`
+  
+  ```json
+  "schema": "auth"
+  ```
+</ParamField>
+
+<ParamField path="primaryKeys" type="array" required>
+  Array of column names that form the primary key for conflict detection.
+  
+  When inserting data, Greenseed uses these keys to determine if a row already exists.
+  
+  ```json
+  "primaryKeys": ["id"]
+  ```
+  
+  For composite keys:
+  
+  ```json
+  "primaryKeys": ["user_id", "role_id"]
+  ```
+</ParamField>
+
+<ParamField path="source" type="string" required>
+  Path to the JSON file containing seed data for this table.
+  
+  Paths are relative to the configuration file location.
+  
+  ```json
+  "source": "./data/users.json"
+  ```
+  
+  The JSON file must contain an array of objects:
+  
+  ```json
+  [
+    { "id": 1, "name": "Alice" },
+    { "id": 2, "name": "Bob" }
+  ]
+  ```
+</ParamField>
+
+<ParamField path="updateOnConflict" type="array | null" default="null">
+  Array of column names to update when a conflict occurs.
+  
+  **Default:** `null` (do not update on conflict)
+  
+  When `null` or empty array, conflicting rows are skipped. When set to an array of column names, those columns will be updated for existing rows.
+  
+  ```json
+  "updateOnConflict": ["name", "email", "updated_at"]
+  ```
+  
+  To skip updates (insert-only):
+  
+  ```json
+  "updateOnConflict": null
+  ```
+  
+  Or:
+  
+  ```json
+  "updateOnConflict": []
+  ```
+</ParamField>
+
+<ParamField path="conflictTargetWhere" type="string | null" default="null">
+  SQL WHERE clause for partial unique index conflict targets.
+  
+  **Default:** `null`
+  
+  Use this when your conflict target uses a partial unique index with a predicate.
+  
+  ```json
+  "conflictTargetWhere": "is_active = true"
+  ```
+  
+  This is useful when you have a partial unique index like:
+  
+  ```sql
+  CREATE UNIQUE INDEX users_email_active_idx 
+  ON users (email) 
+  WHERE is_active = true;
+  ```
+</ParamField>
+
+## Complete example
+
+Here's a complete configuration file showing all options:
+
+```json
+{
+  "$schema": "./node_modules/greenseed/dist/schema/configuration_schema.json",
+  "seedFileExtensions": [".json"],
+  "databaseUrlEnvVar": "DATABASE_URL",
+  "onMissingFile": "error",
+  "tables": [
+    {
+      "table": "users",
+      "schema": "public",
+      "primaryKeys": ["id"],
+      "source": "./data/users.json",
+      "updateOnConflict": ["name", "email"],
+      "conflictTargetWhere": null
+    },
+    {
+      "table": "roles",
+      "schema": "auth",
+      "primaryKeys": ["id"],
+      "source": "./data/roles.json",
+      "updateOnConflict": null,
+      "conflictTargetWhere": null
+    },
+    {
+      "table": "user_roles",
+      "schema": "public",
+      "primaryKeys": ["user_id", "role_id"],
+      "source": "./data/user_roles.json",
+      "updateOnConflict": [],
+      "conflictTargetWhere": "deleted_at IS NULL"
+    }
+  ]
+}
+```
+
+## Validation
+
+The configuration is validated using Valibot at runtime. If validation fails, Greenseed will display an error and stop execution.
+
+Common validation errors:
+
+- Missing required fields (`table`, `primaryKeys`, `source`, `databaseUrlEnvVar`, `seedFileExtensions`, `tables`)
+- Invalid enum values for `onMissingFile` (must be `"skip"` or `"error"`)
+- Invalid `seedFileExtensions` (must be `[".json"]`)
+- Invalid types (e.g., string instead of array)

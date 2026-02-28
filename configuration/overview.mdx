@@ -1,0 +1,91 @@
+---
+title: Configuration overview
+description: Learn how Greenseed uses JSON configuration files to define database seeding behavior
+---
+
+Greenseed uses a JSON configuration file to control how data is seeded into your PostgreSQL database. By default, it looks for `seed.config.json` in your project root.
+
+## Configuration file location
+
+You can specify a custom configuration file path using the `--config` flag:
+
+```bash
+greenseed push --config custom-seed.config.json
+```
+
+## Basic structure
+
+A Greenseed configuration file has four main sections:
+
+- **seedFileExtensions** - Allowed file extensions for seed data files
+- **databaseUrlEnvVar** - Environment variable containing your database connection string
+- **onMissingFile** - How to handle missing seed files
+- **tables** - Array of table configurations defining what to seed and how
+
+## Example configuration
+
+Here's a complete example from the README:
+
+```json
+{
+  "seedFileExtensions": [".json"],
+  "databaseUrlEnvVar": "DATABASE_URL",
+  "onMissingFile": "error",
+  "tables": [
+    {
+      "table": "users",
+      "schema": "public",
+      "primaryKeys": ["id"],
+      "source": "./data/users.json",
+      "conflictTargetWhere": "is_active = true"
+    }
+  ]
+}
+```
+
+## Schema validation
+
+Greenseed validates your configuration file against a JSON schema. You can enable IDE autocomplete and validation by adding a `$schema` field:
+
+```json
+{
+  "$schema": "./node_modules/greenseed/dist/schema/configuration_schema.json",
+  "seedFileExtensions": [".json"],
+  "databaseUrlEnvVar": "DATABASE_URL",
+  "tables": []
+}
+```
+
+## Initializing a config file
+
+Use the `init` command to generate a default configuration file:
+
+```bash
+greenseed init
+```
+
+This creates a `seed.config.json` file with example values:
+
+```json
+{
+  "$schema": "./node_modules/greenseed/dist/schema/configuration_schema.json",
+  "seedFileExtensions": [".json"],
+  "databaseUrlEnvVar": "DATABASE_URL",
+  "onMissingFile": "error",
+  "tables": [
+    {
+      "table": "example_table",
+      "schema": "public",
+      "primaryKeys": ["id"],
+      "source": "./data/example_table.json",
+      "updateOnConflict": [],
+      "conflictTargetWhere": null
+    }
+  ]
+}
+```
+
+## Next steps
+
+- See the [schema reference](/configuration/schema) for all available configuration options
+- Learn about [table configuration](/configuration/tables) for detailed seeding control

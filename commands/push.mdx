@@ -1,0 +1,100 @@
+---
+title: greenseed push
+description: Seed your database with data from JSON files
+---
+
+The `push` command reads your configuration file, connects to your database, and inserts or upserts data from your seed files into the specified tables.
+
+## Usage
+
+```bash
+greenseed push [options]
+```
+
+## Options
+
+<ParamField path="--config" type="string" default="seed.config.json">
+  Path to the configuration file. Can be absolute or relative to the current working directory.
+  
+  **Alias:** `-c`
+</ParamField>
+
+<ParamField path="--dbvar" type="string">
+  Override the database environment variable name specified in the config file. When provided, Greenseed will read the database URL from this environment variable instead of the one defined in `databaseUrlEnvVar`.
+  
+  **Alias:** `-d`
+</ParamField>
+
+## Examples
+
+### Basic usage
+
+Run with the default configuration file:
+
+```bash
+greenseed push
+```
+
+### Custom configuration file
+
+Specify a different config file:
+
+```bash
+greenseed push --config custom.config.json
+```
+
+### Override database environment variable
+
+Use a different environment variable for the database URL:
+
+```bash
+greenseed push --dbvar DEV_DATABASE_URL
+```
+
+### Combined options
+
+```bash
+greenseed push -c staging.config.json -d STAGING_DB_URL
+```
+
+## What it does
+
+1. **Loads configuration** - Reads and validates the config file
+2. **Connects to database** - Establishes connection using the specified environment variable
+3. **Validates tables** - Checks that all tables exist in the database
+4. **Loads seed data** - Reads JSON files for each table
+5. **Inserts data** - Inserts or upserts rows in batches of 1000
+6. **Reports results** - Shows success/skip counts for each table
+
+## Output
+
+The command provides detailed output during execution:
+
+```bash
+🌱 GreenSeed
+
+ℹ Using config: seed.config.json
+ℹ Database: DATABASE_URL
+✓ Database connection established
+
+Seeding Tables
+
+ℹ Seeding public.users
+✓ public.users inserted 150 rows
+ℹ Seeding public.posts
+✓ public.posts upserted 42, skipped 8
+
+Summary
+
+✓ Seeded 2 tables
+```
+
+## Error handling
+
+The command exits with code 1 if any of these occur:
+
+- Configuration file not found or invalid
+- Database environment variable not set
+- Database connection fails
+- Table validation fails
+- Seed file missing (when `onMissingFile` is set to `"error"`)

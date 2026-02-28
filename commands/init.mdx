@@ -1,0 +1,88 @@
+---
+title: greenseed init
+description: Create a new Greenseed configuration file
+---
+
+The `init` command creates a new configuration file with default settings and an example table definition.
+
+## Usage
+
+```bash
+greenseed init [options]
+```
+
+## Options
+
+<ParamField path="--config" type="string" default="seed.config.json">
+  Path where the configuration file should be created. Can be absolute or relative to the current working directory.
+  
+  **Alias:** `-c`
+</ParamField>
+
+## Examples
+
+### Create default config
+
+Create `seed.config.json` in the current directory:
+
+```bash
+greenseed init
+```
+
+Output:
+```bash
+✓ Config created: seed.config.json
+```
+
+### Create config with custom name
+
+Create a config file with a different name:
+
+```bash
+greenseed init --config custom.config.json
+```
+
+### Create config in subdirectory
+
+```bash
+greenseed init -c config/seed.config.json
+```
+
+## Generated configuration
+
+The command creates a configuration file with the following structure:
+
+```json
+{
+  "$schema": "./node_modules/greenseed/dist/schema/configuration_schema.json",
+  "seedFileExtensions": [".json"],
+  "databaseUrlEnvVar": "DATABASE_URL",
+  "onMissingFile": "error",
+  "tables": [
+    {
+      "table": "example_table",
+      "schema": "public",
+      "primaryKeys": ["id"],
+      "source": "./data/example_table.json",
+      "updateOnConflict": [],
+      "conflictTargetWhere": null
+    }
+  ]
+}
+```
+
+You'll need to modify this template to match your database schema and seed data files.
+
+## Error handling
+
+The command will fail if:
+
+- A configuration file already exists at the specified path
+- The target directory doesn't exist or isn't writable
+
+When a config file already exists, you'll see:
+
+```bash
+✗ Config file already exists: /path/to/seed.config.json
+Error: Config already exists: /path/to/seed.config.json
+```

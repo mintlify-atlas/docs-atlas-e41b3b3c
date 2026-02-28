@@ -1,80 +1,319 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Learn how to seed your PostgreSQL database with Greenseed in under 5 minutes.
 ---
 
-## Get started in three steps
+# Quickstart
 
-Get your documentation site running locally and make your first customization.
+This guide walks you through seeding a PostgreSQL database with Greenseed from scratch. You'll create a configuration file, prepare data files, and run your first seeding operation.
 
-### Step 1: Set up your local environment
+## Prerequisites
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+Before starting, make sure you have:
 
-### Step 2: Deploy your changes
+- Greenseed installed (see [Installation](/installation))
+- A PostgreSQL database running and accessible
+- Database connection string available
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+## Step 1: Initialize configuration
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+Create a new Greenseed configuration file using the `init` command:
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+```bash
+greenseed init
+```
 
-### Step 3: Go live
+This creates a `seed.config.json` file in your current directory with a default configuration:
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+```json seed.config.json
+{
+  "$schema": "./node_modules/greenseed/dist/schema/configuration_schema.json",
+  "seedFileExtensions": [".json"],
+  "databaseUrlEnvVar": "DATABASE_URL",
+  "onMissingFile": "error",
+  "tables": [
+    {
+      "table": "example_table",
+      "schema": "public",
+      "primaryKeys": ["id"],
+      "source": "./data/example_table.json",
+      "updateOnConflict": [],
+      "conflictTargetWhere": null
+    }
+  ]
+}
+```
+
+<Tip>
+The `$schema` property enables autocomplete and validation in editors like VS Code.
+</Tip>
+
+## Step 2: Set up environment variables
+
+Create a `.env` file with your PostgreSQL connection string:
+
+```bash .env
+DATABASE_URL=postgresql://user:password@localhost:5432/mydb
+```
+
+<Note>
+Greenseed uses the `dotenv` package to automatically load environment variables from `.env` files.
+</Note>
+
+## Step 3: Configure your tables
+
+Edit `seed.config.json` to match your database schema. Here's an example for a users table:
+
+```json seed.config.json
+{
+  "$schema": "./node_modules/greenseed/dist/schema/configuration_schema.json",
+  "seedFileExtensions": [".json"],
+  "databaseUrlEnvVar": "DATABASE_URL",
+  "onMissingFile": "error",
+  "tables": [
+    {
+      "table": "users",
+      "schema": "public",
+      "primaryKeys": ["id"],
+      "source": "./data/users.json",
+      "updateOnConflict": ["name", "email", "updated_at"]
+    }
+  ]
+}
+```
+
+<Steps>
+  <Step title="Set the table name">
+    Change `"table"` to match your database table name
+  </Step>
+  <Step title="Specify primary keys">
+    List all columns that form the primary key in `"primaryKeys"` array
+  </Step>
+  <Step title="Point to data file">
+    Set `"source"` to the path of your JSON data file (relative to config file)
+  </Step>
+  <Step title="Configure upsert behavior">
+    Add columns to `"updateOnConflict"` array to update them when conflicts occur, or use an empty array `[]` for insert-only
+  </Step>
+</Steps>
+
+## Step 4: Create data files
+
+Create a directory for your data files and add a JSON file:
+
+```bash
+mkdir data
+```
+
+Create `data/users.json` with an array of objects:
+
+```json data/users.json
+[
+  {
+    "id": 1,
+    "name": "Alice Johnson",
+    "email": "alice@example.com",
+    "created_at": "2024-01-15T10:00:00Z",
+    "updated_at": "2024-01-15T10:00:00Z"
+  },
+  {
+    "id": 2,
+    "name": "Bob Smith",
+    "email": "bob@example.com",
+    "created_at": "2024-01-16T14:30:00Z",
+    "updated_at": "2024-01-16T14:30:00Z"
+  },
+  {
+    "id": 3,
+    "name": "Carol White",
+    "email": "carol@example.com",
+    "created_at": "2024-01-17T09:15:00Z",
+    "updated_at": "2024-01-17T09:15:00Z"
+  }
+]
+```
+
+<Note>
+Each JSON file must contain an array at the root level. Extra fields not present in your database table are automatically ignored.
+</Note>
+
+## Step 5: Run the seeding command
+
+Execute the `push` command to seed your database:
+
+```bash
+greenseed push
+```
+
+You'll see output similar to this:
+
+```
+🌱 GreenSeed
+
+ℹ Using config: seed.config.json
+ℹ Database: DATABASE_URL
+✓ Database connection established
+
+Seeding Tables
+
+ℹ Seeding public.users
+✓ public.users upserted 3 rows
+
+Summary
+
+✓ Seeded 1 table
+```
+
+<Tip>
+Run `greenseed push` multiple times safely. Greenseed uses your primary keys to detect conflicts and either insert new rows or update existing ones based on your `updateOnConflict` configuration.
+</Tip>
+
+## Step 6: Verify the results
+
+Connect to your PostgreSQL database and verify the data was inserted:
+
+```sql
+SELECT * FROM users;
+```
+
+You should see your three users in the table.
+
+## Understanding upsert behavior
+
+Greenseed's power comes from intelligent conflict handling. Let's explore different configurations:
+
+### Insert-only mode
+
+Use an empty array for `updateOnConflict` to skip updates on conflict:
+
+```json
+{
+  "table": "users",
+  "primaryKeys": ["id"],
+  "source": "./data/users.json",
+  "updateOnConflict": []
+}
+```
+
+Behavior: Insert new rows, skip existing rows silently.
+
+### Upsert mode
+
+Specify columns to update when conflicts occur:
+
+```json
+{
+  "table": "users",
+  "primaryKeys": ["id"],
+  "source": "./data/users.json",
+  "updateOnConflict": ["name", "email", "updated_at"]
+}
+```
+
+Behavior: Insert new rows, update specified columns for existing rows.
+
+<Warning>
+Primary key columns cannot be updated. They are automatically excluded from the `updateOnConflict` list.
+</Warning>
+
+## Advanced: Partial unique indexes
+
+If your table has a partial unique index with a WHERE clause, use `conflictTargetWhere`:
+
+```json
+{
+  "table": "users",
+  "primaryKeys": ["email"],
+  "source": "./data/users.json",
+  "updateOnConflict": ["name"],
+  "conflictTargetWhere": "is_active = true"
+}
+```
+
+This generates SQL like:
+```sql
+INSERT INTO users (email, name, is_active)
+VALUES (...)
+ON CONFLICT (email) WHERE is_active = true
+DO UPDATE SET name = excluded.name;
+```
+
+## Seeding multiple tables
+
+Add multiple table configurations to seed several tables in sequence:
+
+```json seed.config.json
+{
+  "seedFileExtensions": [".json"],
+  "databaseUrlEnvVar": "DATABASE_URL",
+  "tables": [
+    {
+      "table": "users",
+      "schema": "public",
+      "primaryKeys": ["id"],
+      "source": "./data/users.json",
+      "updateOnConflict": ["name", "email"]
+    },
+    {
+      "table": "posts",
+      "schema": "public",
+      "primaryKeys": ["id"],
+      "source": "./data/posts.json",
+      "updateOnConflict": ["title", "content", "user_id"]
+    },
+    {
+      "table": "comments",
+      "schema": "public",
+      "primaryKeys": ["id"],
+      "source": "./data/comments.json",
+      "updateOnConflict": []
+    }
+  ]
+}
+```
+
+Tables are seeded in the order they appear in the configuration.
+
+## CLI options
+
+Customize the `push` command with these options:
+
+```bash
+# Use a custom config file
+greenseed push --config seed.prod.config.json
+
+# Override the database environment variable
+greenseed push --dbvar TEST_DATABASE_URL
+```
+
+<Note>
+Short flags are also available: `-c` for `--config` and `-d` for `--dbvar`.
+</Note>
+
+## Error handling
+
+Greenseed validates your configuration and provides clear error messages:
+
+- **Missing tables**: Greenseed checks that all configured tables exist before seeding
+- **Invalid config**: Schema validation catches configuration errors early
+- **Connection failures**: Database connection issues are reported immediately
+- **Missing files**: By default, missing data files cause errors (configurable via `onMissingFile`)
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
+Now that you've completed the quickstart, explore more advanced features:
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Configuration reference" icon="gear" href="/configuration/overview">
+    Learn about all configuration options and advanced features
+  </Card>
+  <Card title="CLI reference" icon="terminal" href="/commands/push">
+    Explore all available commands and flags
+  </Card>
+  <Card title="Upsert behavior" icon="merge" href="/guides/upsert-behavior">
+    Learn how conflict resolution and upserts work
+  </Card>
+  <Card title="Examples" icon="code" href="/guides/examples">
+    Real-world usage patterns and examples
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

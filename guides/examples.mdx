@@ -1,0 +1,485 @@
+---
+title: Examples
+description: Real-world usage patterns and examples for seeding databases with Greenseed
+---
+
+This guide provides practical examples of common seeding scenarios using Greenseed.
+
+## Basic user table
+
+Seed a simple user table with insert-only behavior.
+
+<Tabs>
+  <Tab title="Schema">
+    ```sql
+    CREATE TABLE users (
+      id SERIAL PRIMARY KEY,
+      email VARCHAR(255) NOT NULL UNIQUE,
+      name VARCHAR(100) NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+    ```
+  </Tab>
+  <Tab title="Configuration">
+    ```json
+    {
+      "seedFileExtensions": [".json"],
+      "databaseUrlEnvVar": "DATABASE_URL",
+      "tables": [
+        {
+          "table": "users",
+          "schema": "public",
+          "primaryKeys": ["id"],
+          "source": "./data/users.json"
+        }
+      ]
+    }
+    ```
+  </Tab>
+  <Tab title="Data file">
+    ```json
+    [
+      {
+        "id": 1,
+        "email": "alice@example.com",
+        "name": "Alice Johnson",
+        "created_at": "2025-01-15T10:00:00Z"
+      },
+      {
+        "id": 2,
+        "email": "bob@example.com",
+        "name": "Bob Smith",
+        "created_at": "2025-01-16T14:30:00Z"
+      }
+    ]
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+  Without `updateOnConflict`, existing users will be skipped on subsequent runs. This ensures you don't overwrite production data during development.
+</Note>
+
+## Product catalog with updates
+
+Maintain a product catalog where prices and details can be updated on re-seeding.
+
+<Tabs>
+  <Tab title="Schema">
+    ```sql
+    CREATE TABLE products (
+      sku VARCHAR(50) PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      price DECIMAL(10,2) NOT NULL,
+      description TEXT,
+      stock INTEGER DEFAULT 0,
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+    ```
+  </Tab>
+  <Tab title="Configuration">
+    ```json
+    {
+      "seedFileExtensions": [".json"],
+      "databaseUrlEnvVar": "DATABASE_URL",
+      "tables": [
+        {
+          "table": "products",
+          "schema": "public",
+          "primaryKeys": ["sku"],
+          "source": "./data/products.json",
+          "updateOnConflict": ["name", "price", "description", "stock", "updated_at"]
+        }
+      ]
+    }
+    ```
+  </Tab>
+  <Tab title="Data file">
+    ```json
+    [
+      {
+        "sku": "WIDGET-001",
+        "name": "Premium Widget",
+        "price": 29.99,
+        "description": "High-quality widget for professional use",
+        "stock": 150,
+        "updated_at": "2026-02-28T12:00:00Z"
+      },
+      {
+        "sku": "GADGET-500",
+        "name": "Super Gadget",
+        "price": 99.99,
+        "description": "The ultimate gadget for power users",
+        "stock": 75,
+        "updated_at": "2026-02-28T12:00:00Z"
+      }
+    ]
+    ```
+  </Tab>
+</Tabs>
+
+<Tip>
+  Using `updateOnConflict` with all non-key columns allows your seed data to serve as the source of truth. Update your JSON files and re-run the seed to sync changes.
+</Tip>
+
+## Multi-tenancy with composite keys
+
+Seed tenant-specific data using composite primary keys.
+
+<Tabs>
+  <Tab title="Schema">
+    ```sql
+    CREATE TABLE tenant_settings (
+      tenant_id INTEGER NOT NULL,
+      setting_key VARCHAR(100) NOT NULL,
+      setting_value TEXT,
+      updated_at TIMESTAMP DEFAULT NOW(),
+      PRIMARY KEY (tenant_id, setting_key)
+    );
+    ```
+  </Tab>
+  <Tab title="Configuration">
+    ```json
+    {
+      "seedFileExtensions": [".json"],
+      "databaseUrlEnvVar": "DATABASE_URL",
+      "tables": [
+        {
+          "table": "tenant_settings",
+          "schema": "public",
+          "primaryKeys": ["tenant_id", "setting_key"],
+          "source": "./data/tenant-settings.json",
+          "updateOnConflict": ["setting_value", "updated_at"]
+        }
+      ]
+    }
+    ```
+  </Tab>
+  <Tab title="Data file">
+    ```json
+    [
+      {
+        "tenant_id": 1,
+        "setting_key": "theme",
+        "setting_value": "dark",
+        "updated_at": "2026-02-28T10:00:00Z"
+      },
+      {
+        "tenant_id": 1,
+        "setting_key": "language",
+        "setting_value": "en",
+        "updated_at": "2026-02-28T10:00:00Z"
+      },
+      {
+        "tenant_id": 2,
+        "setting_key": "theme",
+        "setting_value": "light",
+        "updated_at": "2026-02-28T10:00:00Z"
+      }
+    ]
+    ```
+  </Tab>
+</Tabs>
+
+## Active users with partial index
+
+Enforce unique emails only for active users using a partial index.
+
+<Tabs>
+  <Tab title="Schema">
+    ```sql
+    CREATE TABLE users (
+      id SERIAL PRIMARY KEY,
+      email VARCHAR(255) NOT NULL,
+      username VARCHAR(100) NOT NULL,
+      is_active BOOLEAN DEFAULT true,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE UNIQUE INDEX users_email_active_idx
+      ON users(email)
+      WHERE is_active = true;
+
+    CREATE UNIQUE INDEX users_username_active_idx
+      ON users(username)
+      WHERE is_active = true;
+    ```
+  </Tab>
+  <Tab title="Configuration">
+    ```json
+    {
+      "seedFileExtensions": [".json"],
+      "databaseUrlEnvVar": "DATABASE_URL",
+      "tables": [
+        {
+          "table": "users",
+          "schema": "public",
+          "primaryKeys": ["id"],
+          "source": "./data/users.json",
+          "updateOnConflict": ["email", "username"],
+          "conflictTargetWhere": "is_active = true"
+        }
+      ]
+    }
+    ```
+  </Tab>
+  <Tab title="Data file">
+    ```json
+    [
+      {
+        "id": 1,
+        "email": "alice@example.com",
+        "username": "alice",
+        "is_active": true
+      },
+      {
+        "id": 2,
+        "email": "bob@example.com",
+        "username": "bob",
+        "is_active": true
+      },
+      {
+        "id": 3,
+        "email": "alice@example.com",
+        "username": "alice_archived",
+        "is_active": false
+      }
+    ]
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+  User ID 3 can have the same email as user ID 1 because `is_active = false`. The partial index only enforces uniqueness for active users.
+</Note>
+
+## Reference data across schemas
+
+Seed reference data into multiple schemas (e.g., multi-tenant architecture).
+
+```json
+{
+  "seedFileExtensions": [".json"],
+  "databaseUrlEnvVar": "DATABASE_URL",
+  "tables": [
+    {
+      "table": "countries",
+      "schema": "ref",
+      "primaryKeys": ["code"],
+      "source": "./data/reference/countries.json"
+    },
+    {
+      "table": "currencies",
+      "schema": "ref",
+      "primaryKeys": ["code"],
+      "source": "./data/reference/currencies.json"
+    },
+    {
+      "table": "users",
+      "schema": "public",
+      "primaryKeys": ["id"],
+      "source": "./data/users.json",
+      "updateOnConflict": ["name", "email"]
+    }
+  ]
+}
+```
+
+## Multiple tables with relationships
+
+Seed related tables in dependency order.
+
+```json
+{
+  "seedFileExtensions": [".json"],
+  "databaseUrlEnvVar": "DATABASE_URL",
+  "onMissingFile": "error",
+  "tables": [
+    {
+      "table": "categories",
+      "schema": "public",
+      "primaryKeys": ["id"],
+      "source": "./data/categories.json"
+    },
+    {
+      "table": "products",
+      "schema": "public",
+      "primaryKeys": ["id"],
+      "source": "./data/products.json",
+      "updateOnConflict": ["name", "price", "category_id"]
+    },
+    {
+      "table": "product_images",
+      "schema": "public",
+      "primaryKeys": ["id"],
+      "source": "./data/product-images.json",
+      "updateOnConflict": ["product_id", "url", "position"]
+    }
+  ]
+}
+```
+
+<Warning>
+  Greenseed processes tables in the order specified in your configuration. Ensure parent tables (e.g., categories) are seeded before child tables (e.g., products) to satisfy foreign key constraints.
+</Warning>
+
+## Development vs production seeds
+
+Use different database variables for different environments.
+
+<Tabs>
+  <Tab title="Development">
+    ```bash
+    # .env.development
+    DATABASE_URL=postgresql://localhost:5432/myapp_dev
+    ```
+
+    ```bash
+    greenseed push --config seed.config.json
+    ```
+  </Tab>
+  <Tab title="Staging">
+    ```bash
+    # .env.staging
+    STAGING_DB_URL=postgresql://staging.db.example.com:5432/myapp
+    ```
+
+    ```bash
+    greenseed push --dbvar STAGING_DB_URL
+    ```
+  </Tab>
+  <Tab title="Production">
+    ```bash
+    # Use environment-specific config
+    greenseed push --config seed.production.json --dbvar PROD_DB_URL
+    ```
+  </Tab>
+</Tabs>
+
+<Tip>
+  Use the `--dbvar` flag to override the database connection for different environments without changing your config file.
+</Tip>
+
+## Handling optional files
+
+Skip missing seed files instead of failing.
+
+```json
+{
+  "seedFileExtensions": [".json"],
+  "databaseUrlEnvVar": "DATABASE_URL",
+  "onMissingFile": "skip",
+  "tables": [
+    {
+      "table": "users",
+      "primaryKeys": ["id"],
+      "source": "./data/users.json"
+    },
+    {
+      "table": "test_data",
+      "primaryKeys": ["id"],
+      "source": "./data/test-data.json"
+    }
+  ]
+}
+```
+
+<Note>
+  With `onMissingFile: "skip"`, if `test-data.json` doesn't exist, Greenseed will skip it and continue seeding other tables. Use `"error"` (default) to fail on missing files.
+</Note>
+
+## Soft delete pattern
+
+Maintain unique constraints only for non-deleted records.
+
+<Tabs>
+  <Tab title="Schema">
+    ```sql
+    CREATE TABLE products (
+      id SERIAL PRIMARY KEY,
+      sku VARCHAR(50) NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      deleted_at TIMESTAMP
+    );
+
+    CREATE UNIQUE INDEX products_sku_not_deleted_idx
+      ON products(sku)
+      WHERE deleted_at IS NULL;
+    ```
+  </Tab>
+  <Tab title="Configuration">
+    ```json
+    {
+      "seedFileExtensions": [".json"],
+      "databaseUrlEnvVar": "DATABASE_URL",
+      "tables": [
+        {
+          "table": "products",
+          "schema": "public",
+          "primaryKeys": ["id"],
+          "source": "./data/products.json",
+          "updateOnConflict": ["sku", "name"],
+          "conflictTargetWhere": "deleted_at IS NULL"
+        }
+      ]
+    }
+    ```
+  </Tab>
+  <Tab title="Data file">
+    ```json
+    [
+      {
+        "id": 1,
+        "sku": "PROD-001",
+        "name": "Active Product",
+        "deleted_at": null
+      },
+      {
+        "id": 2,
+        "sku": "PROD-001",
+        "name": "Deleted Product (same SKU)",
+        "deleted_at": "2025-12-01T00:00:00Z"
+      }
+    ]
+    ```
+  </Tab>
+</Tabs>
+
+## Time-series data
+
+Seed historical data with composite keys.
+
+```sql
+CREATE TABLE daily_metrics (
+  metric_date DATE NOT NULL,
+  metric_name VARCHAR(100) NOT NULL,
+  value DECIMAL(15,2) NOT NULL,
+  PRIMARY KEY (metric_date, metric_name)
+);
+```
+
+```json
+{
+  "tables": [
+    {
+      "table": "daily_metrics",
+      "primaryKeys": ["metric_date", "metric_name"],
+      "source": "./data/metrics.json",
+      "updateOnConflict": ["value"]
+    }
+  ]
+}
+```
+
+```json
+[
+  { "metric_date": "2026-02-01", "metric_name": "revenue", "value": 15420.50 },
+  { "metric_date": "2026-02-01", "metric_name": "orders", "value": 342 },
+  { "metric_date": "2026-02-02", "metric_name": "revenue", "value": 18230.75 },
+  { "metric_date": "2026-02-02", "metric_name": "orders", "value": 389 }
+]
+```
+
+<Tip>
+  For time-series data, use upsert mode to allow correcting historical values if needed while preventing duplicates.
+</Tip>

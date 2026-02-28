@@ -1,0 +1,129 @@
+---
+title: Introduction
+description: Greenseed is a CLI tool for idempotent PostgreSQL database seeding from JSON files with intelligent upsert handling.
+---
+
+# Introduction to Greenseed
+
+Greenseed is a lightweight CLI tool that seeds PostgreSQL databases from JSON files with built-in idempotent upsert support. It's designed for developers who need reliable, repeatable database seeding for development, testing, and CI/CD pipelines.
+
+## What is Greenseed?
+
+Greenseed reads JSON data files and inserts them into PostgreSQL tables using configurable conflict resolution strategies. Unlike traditional seeding tools that require manual cleanup or complex migration scripts, Greenseed handles updates intelligently through PostgreSQL's native `ON CONFLICT` clause.
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install Greenseed via npm, yarn, pnpm, or bun
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get started with your first seeding workflow in minutes
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/overview">
+    Learn how to configure tables, conflicts, and upsert behavior
+  </Card>
+  <Card title="CLI Reference" icon="terminal" href="/commands/push">
+    Explore all available commands and options
+  </Card>
+</CardGroup>
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="Idempotent operations" icon="arrows-rotate">
+    Run seeding commands multiple times without duplicates or errors. Greenseed uses primary keys to detect conflicts and handle them gracefully.
+  </Card>
+  <Card title="Configurable upserts" icon="merge">
+    Choose which columns to update on conflict. Insert-only mode or full upsert with granular column control.
+  </Card>
+  <Card title="Partial index support" icon="filter">
+    Support for partial unique indexes with WHERE clauses using the `conflictTargetWhere` option for advanced conflict handling.
+  </Card>
+  <Card title="Batch processing" icon="layer-group">
+    Automatically processes large datasets in 1000-row batches for optimal performance and memory usage.
+  </Card>
+  <Card title="Schema validation" icon="shield-check">
+    Type-safe configuration with JSON schema validation. Catch configuration errors before runtime.
+  </Card>
+  <Card title="Smart column mapping" icon="table-columns">
+    Extra fields in JSON that don't match table columns are automatically ignored, making data files flexible.
+  </Card>
+</CardGroup>
+
+## How it works
+
+Greenseed follows a simple workflow:
+
+1. **Load configuration** - Reads `seed.config.json` to understand your database schema and data sources
+2. **Connect to database** - Establishes connection using the configured environment variable
+3. **Validate tables** - Checks that all configured tables exist in the database
+4. **Process data files** - Reads JSON arrays from configured source files
+5. **Batch insert/upsert** - Inserts data in 1000-row batches with conflict handling
+6. **Report results** - Shows detailed statistics for each table seeded
+
+## When to use Greenseed
+
+<CardGroup cols={1}>
+  <Card title="Development environments" icon="laptop-code">
+    Quickly populate local databases with realistic test data
+  </Card>
+  <Card title="Testing pipelines" icon="vial">
+    Seed test databases with known data states for integration tests
+  </Card>
+  <Card title="CI/CD workflows" icon="gears">
+    Bootstrap databases in continuous integration environments
+  </Card>
+  <Card title="Data migrations" icon="database">
+    Move reference data between environments safely
+  </Card>
+</CardGroup>
+
+## Example workflow
+
+Here's what a typical Greenseed workflow looks like:
+
+```bash
+# Initialize a new configuration
+greenseed init
+
+# Edit seed.config.json to match your schema
+# Create data files (e.g., data/users.json)
+
+# Seed the database
+greenseed push
+```
+
+Output:
+```
+🌱 GreenSeed
+
+ℹ Using config: seed.config.json
+ℹ Database: DATABASE_URL
+✓ Database connection established
+
+Seeding Tables
+
+ℹ Seeding public.users
+✓ public.users upserted 150 rows
+
+Summary
+
+✓ Seeded 1 table
+```
+
+<Note>
+Greenseed is designed for PostgreSQL only and uses the [`postgres`](https://github.com/porsager/postgres) client library for high-performance connection pooling.
+</Note>
+
+## Next steps
+
+<Steps>
+  <Step title="Install Greenseed">
+    Follow the [installation guide](/installation) to add Greenseed to your project
+  </Step>
+  <Step title="Complete the quickstart">
+    Walk through the [quickstart tutorial](/quickstart) to seed your first database
+  </Step>
+  <Step title="Configure your tables">
+    Read the [configuration reference](/configuration/overview) to customize seeding behavior
+  </Step>
+</Steps>

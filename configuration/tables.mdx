@@ -1,0 +1,296 @@
+---
+title: Tables configuration
+description: Detailed guide for configuring table seeding behavior in Greenseed
+---
+
+The `tables` array in your configuration file defines which database tables to seed and how to handle conflicts.
+
+## Basic table configuration
+
+Each table configuration requires three essential fields:
+
+```json
+{
+  "table": "users",
+  "primaryKeys": ["id"],
+  "source": "./data/users.json"
+}
+```
+
+<ParamField path="table" type="string" required>
+  The name of the database table.
+  
+  ```json
+  "table": "users"
+  ```
+</ParamField>
+
+<ParamField path="primaryKeys" type="array" required>
+  Column names that form the primary key for conflict detection.
+  
+  ```json
+  "primaryKeys": ["id"]
+  ```
+</ParamField>
+
+<ParamField path="source" type="string" required>
+  Path to the JSON file containing seed data.
+  
+  Paths are relative to the config file location.
+  
+  ```json
+  "source": "./data/users.json"
+  ```
+</ParamField>
+
+## Schema configuration
+
+By default, Greenseed assumes tables are in the `public` schema. For tables in other schemas, specify the `schema` field:
+
+<ParamField path="schema" type="string" default="public">
+  Database schema containing the table.
+  
+  ```json
+  {
+    "table": "roles",
+    "schema": "auth",
+    "primaryKeys": ["id"],
+    "source": "./data/roles.json"
+  }
+  ```
+</ParamField>
+
+## Conflict handling
+
+Greenseed uses the `primaryKeys` to detect conflicts. When a row with matching primary key values already exists, you can control what happens:
+
+### Insert-only mode (skip conflicts)
+
+By default, conflicting rows are skipped:
+
+```json
+{
+  "table": "users",
+  "primaryKeys": ["id"],
+  "source": "./data/users.json",
+  "updateOnConflict": null
+}
+```
+
+Or explicitly with an empty array:
+
+```json
+"updateOnConflict": []
+```
+
+### Upsert mode (update on conflict)
+
+To update existing rows, specify which columns to update:
+
+<ParamField path="updateOnConflict" type="array | null" default="null">
+  Columns to update when a conflict occurs.
+  
+  ```json
+  {
+    "table": "users",
+    "primaryKeys": ["id"],
+    "source": "./data/users.json",
+    "updateOnConflict": ["name", "email", "updated_at"]
+  }
+  ```
+  
+  This generates SQL similar to:
+  
+  ```sql
+  INSERT INTO users (id, name, email, updated_at)
+  VALUES ($1, $2, $3, $4)
+  ON CONFLICT (id)
+  DO UPDATE SET
+    name = EXCLUDED.name,
+    email = EXCLUDED.email,
+    updated_at = EXCLUDED.updated_at;
+  ```
+</ParamField>
+
+## Composite primary keys
+
+For tables with composite primary keys, include all key columns:
+
+```json
+{
+  "table": "user_roles",
+  "primaryKeys": ["user_id", "role_id"],
+  "source": "./data/user_roles.json"
+}
+```
+
+Greenseed will detect conflicts based on the combination of both columns.
+
+## Partial unique indexes
+
+When your table has a partial unique index (with a WHERE clause), use `conflictTargetWhere`:
+
+<ParamField path="conflictTargetWhere" type="string | null" default="null">
+  SQL WHERE clause for the conflict target.
+  
+  Use this when your unique constraint has a predicate.
+  
+  ```json
+  {
+    "table": "users",
+    "primaryKeys": ["email"],
+    "source": "./data/users.json",
+    "conflictTargetWhere": "is_active = true"
+  }
+  ```
+  
+  This is necessary when you have a partial unique index like:
+  
+  ```sql
+  CREATE UNIQUE INDEX users_email_active_idx 
+  ON users (email) 
+  WHERE is_active = true;
+  ```
+</ParamField>
+
+## Source file format
+
+Each source file must be a JSON array of objects:
+
+```json
+[
+  { "id": 1, "name": "Alice", "email": "alice@example.com" },
+  { "id": 2, "name": "Bob", "email": "bob@example.com" }
+]
+```
+
+### Column filtering
+
+Greenseed automatically filters out columns that don't exist in the target table. This means you can include extra fields in your JSON that won't cause errors:
+
+```json
+[
+  { 
+    "id": 1, 
+    "name": "Alice",
+    "_comment": "This field will be ignored"
+  }
+]
+```
+
+### Missing files
+
+If a source file doesn't exist, behavior depends on the `onMissingFile` configuration:
+
+- `"error"` (default): Throws an error and stops execution
+- `"skip"`: Skips the table and continues
+
+See the [configuration schema](/configuration/schema) for more details.
+
+## Batch processing
+
+Greenseed processes rows in batches of 1,000 for optimal performance. This happens automatically and doesn't require configuration.
+
+## Complete examples
+
+### Simple insert-only
+
+```json
+{
+  "tables": [
+    {
+      "table": "countries",
+      "schema": "public",
+      "primaryKeys": ["code"],
+      "source": "./data/countries.json"
+    }
+  ]
+}
+```
+
+### Upsert with updates
+
+```json
+{
+  "tables": [
+    {
+      "table": "users",
+      "schema": "public",
+      "primaryKeys": ["id"],
+      "source": "./data/users.json",
+      "updateOnConflict": ["name", "email", "avatar_url"]
+    }
+  ]
+}
+```
+
+### Composite keys with partial index
+
+```json
+{
+  "tables": [
+    {
+      "table": "subscriptions",
+      "schema": "billing",
+      "primaryKeys": ["user_id", "plan_id"],
+      "source": "./data/subscriptions.json",
+      "updateOnConflict": ["status", "expires_at"],
+      "conflictTargetWhere": "status != 'cancelled'"
+    }
+  ]
+}
+```
+
+### Multiple tables
+
+```json
+{
+  "tables": [
+    {
+      "table": "users",
+      "primaryKeys": ["id"],
+      "source": "./data/users.json",
+      "updateOnConflict": ["name", "email"]
+    },
+    {
+      "table": "posts",
+      "primaryKeys": ["id"],
+      "source": "./data/posts.json",
+      "updateOnConflict": ["title", "content"]
+    },
+    {
+      "table": "comments",
+      "primaryKeys": ["id"],
+      "source": "./data/comments.json"
+    }
+  ]
+}
+```
+
+## Execution order
+
+Tables are seeded in the order they appear in the configuration array. This is important for maintaining referential integrity:
+
+```json
+{
+  "tables": [
+    {
+      "table": "users",
+      "primaryKeys": ["id"],
+      "source": "./data/users.json"
+    },
+    {
+      "table": "posts",
+      "primaryKeys": ["id"],
+      "source": "./data/posts.json"
+    },
+    {
+      "table": "comments",
+      "primaryKeys": ["id"],
+      "source": "./data/comments.json"
+    }
+  ]
+}
+```
+
+In this example, `users` is seeded first, then `posts` (which may reference users), then `comments` (which may reference posts).

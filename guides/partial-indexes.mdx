@@ -1,0 +1,265 @@
+---
+title: Partial indexes
+description: Use conflictTargetWhere to handle partial unique indexes in PostgreSQL
+---
+
+Partial unique indexes in PostgreSQL allow you to enforce uniqueness constraints only on a subset of rows. Greenseed supports partial indexes through the `conflictTargetWhere` option.
+
+## What are partial indexes?
+
+A partial index is an index built over a subset of a table, defined by a conditional expression (WHERE clause). When you have a partial unique index, you need to specify the same predicate in your `ON CONFLICT` clause.
+
+### Example partial index
+
+```sql
+CREATE UNIQUE INDEX users_email_active_idx
+  ON users(email)
+  WHERE is_active = true;
+```
+
+This index enforces unique emails only for active users. Inactive users can have duplicate emails.
+
+## Using conflictTargetWhere
+
+To seed data into a table with a partial unique index, you must specify the `conflictTargetWhere` option that matches your index predicate.
+
+<Tabs>
+  <Tab title="Configuration">
+    ```json
+    {
+      "tables": [
+        {
+          "table": "users",
+          "schema": "public",
+          "primaryKeys": ["id"],
+          "source": "./data/users.json",
+          "updateOnConflict": ["email", "name"],
+          "conflictTargetWhere": "is_active = true"
+        }
+      ]
+    }
+    ```
+  </Tab>
+  <Tab title="Generated SQL">
+    ```sql
+    INSERT INTO public.users (id, email, name, is_active)
+    VALUES (1, 'alice@example.com', 'Alice', true)
+    ON CONFLICT (id) WHERE is_active = true DO UPDATE SET
+      email = EXCLUDED.email,
+      name = EXCLUDED.name
+    RETURNING id;
+    ```
+  </Tab>
+</Tabs>
+
+<Warning>
+  The `conflictTargetWhere` predicate must exactly match your partial index WHERE clause. Otherwise, PostgreSQL will raise an error: "there is no unique or exclusion constraint matching the ON CONFLICT specification".
+</Warning>
+
+## Common use cases
+
+### Active/archived records
+
+Enforce uniqueness only on active records while allowing archived records to have duplicate values.
+
+```sql
+-- Database schema
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR(255) NOT NULL,
+  username VARCHAR(100) NOT NULL,
+  is_active BOOLEAN DEFAULT true,
+  archived_at TIMESTAMP
+);
+
+CREATE UNIQUE INDEX users_email_active_idx
+  ON users(email)
+  WHERE is_active = true;
+
+CREATE UNIQUE INDEX users_username_active_idx
+  ON users(username)
+  WHERE is_active = true;
+```
+
+```json
+// seed.config.json
+{
+  "tables": [
+    {
+      "table": "users",
+      "primaryKeys": ["id"],
+      "source": "./data/users.json",
+      "updateOnConflict": ["email", "username"],
+      "conflictTargetWhere": "is_active = true"
+    }
+  ]
+}
+```
+
+### Soft deletes
+
+Maintain unique constraints for non-deleted records only.
+
+```sql
+CREATE TABLE products (
+  id SERIAL PRIMARY KEY,
+  sku VARCHAR(50) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  deleted_at TIMESTAMP
+);
+
+CREATE UNIQUE INDEX products_sku_not_deleted_idx
+  ON products(sku)
+  WHERE deleted_at IS NULL;
+```
+
+```json
+{
+  "tables": [
+    {
+      "table": "products",
+      "primaryKeys": ["id"],
+      "source": "./data/products.json",
+      "updateOnConflict": ["sku", "name"],
+      "conflictTargetWhere": "deleted_at IS NULL"
+    }
+  ]
+}
+```
+
+<Tip>
+  Use `IS NULL` instead of `= NULL` when checking for null values in your predicate. PostgreSQL requires the correct null-checking syntax.
+</Tip>
+
+### Status-based uniqueness
+
+Enforce unique constraints only for specific status values.
+
+```sql
+CREATE TABLE subscriptions (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  plan_id INTEGER NOT NULL,
+  status VARCHAR(20) NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX subscriptions_user_plan_active_idx
+  ON subscriptions(user_id, plan_id)
+  WHERE status IN ('active', 'trial');
+```
+
+```json
+{
+  "tables": [
+    {
+      "table": "subscriptions",
+      "primaryKeys": ["id"],
+      "source": "./data/subscriptions.json",
+      "updateOnConflict": ["status", "created_at"],
+      "conflictTargetWhere": "status IN ('active', 'trial')"
+    }
+  ]
+}
+```
+
+## Predicate syntax rules
+
+The `conflictTargetWhere` value is inserted directly into the SQL query using PostgreSQL's unsafe query builder. Follow these rules:
+
+### Valid predicates
+
+```json
+// Boolean column checks
+"conflictTargetWhere": "is_active = true"
+"conflictTargetWhere": "is_deleted = false"
+
+// Null checks
+"conflictTargetWhere": "deleted_at IS NULL"
+"conflictTargetWhere": "archived_at IS NOT NULL"
+
+// Comparisons
+"conflictTargetWhere": "status = 'active'"
+"conflictTargetWhere": "priority > 0"
+
+// Multiple conditions
+"conflictTargetWhere": "is_active = true AND status = 'verified'"
+
+// IN clauses
+"conflictTargetWhere": "status IN ('active', 'pending')"
+```
+
+### Match your index exactly
+
+<Warning>
+  Your `conflictTargetWhere` must be character-for-character identical to your index WHERE clause. Even differences in spacing or quoting can cause PostgreSQL to not recognize the index.
+</Warning>
+
+```sql
+-- If your index is:
+CREATE UNIQUE INDEX ... WHERE is_active = true;
+
+-- Then use:
+"conflictTargetWhere": "is_active = true"
+
+-- NOT:
+"conflictTargetWhere": "is_active=true"  ❌
+"conflictTargetWhere": "is_active = TRUE"  ❌
+"conflictTargetWhere": "is_active = 'true'"  ❌
+```
+
+## When not to use conflictTargetWhere
+
+Omit `conflictTargetWhere` when:
+
+- Your primary key has no partial index (standard unique constraint)
+- You're using a simple unique index without a WHERE clause
+- Your conflict target is a complete unique constraint
+
+<Note>
+  If you don't have a partial index, leave `conflictTargetWhere` unset or set it to `null`. Including an unnecessary predicate will cause PostgreSQL to fail with a constraint matching error.
+</Note>
+
+## Troubleshooting
+
+### Error: "there is no unique or exclusion constraint matching the ON CONFLICT specification"
+
+This error means your `conflictTargetWhere` predicate doesn't match any partial index on the table.
+
+**Solutions:**
+
+1. Check your index definition: `\d+ table_name` in psql
+2. Verify the predicate matches exactly (case, spacing, quotes)
+3. Ensure the index includes all columns in `primaryKeys`
+4. Confirm the index is a unique index
+
+### Error: "syntax error at or near..."
+
+Your predicate contains invalid SQL syntax.
+
+**Solutions:**
+
+1. Test your predicate in a standalone query
+2. Escape single quotes properly in JSON (`\'`)
+3. Use proper null checking (`IS NULL` not `= NULL`)
+4. Verify column names are spelled correctly
+
+## Complex predicates
+
+You can use complex expressions in your predicate, but they must match your index.
+
+```sql
+CREATE UNIQUE INDEX complex_idx
+  ON orders(customer_id, product_id)
+  WHERE status = 'pending' AND created_at > '2024-01-01'::timestamp;
+```
+
+```json
+{
+  "conflictTargetWhere": "status = 'pending' AND created_at > '2024-01-01'::timestamp"
+}
+```
+
+<Tip>
+  Keep partial index predicates simple when possible. Complex predicates are harder to maintain and must be kept in sync between your schema and seed configuration.
+</Tip>

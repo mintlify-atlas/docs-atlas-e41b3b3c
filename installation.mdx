@@ -1,0 +1,208 @@
+---
+title: Installation
+description: Install Greenseed CLI using npm, yarn, pnpm, or bun for idempotent PostgreSQL database seeding.
+---
+
+# Installation
+
+Greenseed is distributed as an npm package and can be installed using your preferred JavaScript package manager.
+
+## Requirements
+
+Before installing Greenseed, ensure you have:
+
+- **Node.js** version 16 or higher
+- **PostgreSQL** database (version 10 or higher recommended)
+- A JavaScript package manager (npm, yarn, pnpm, or bun)
+
+## Install with package managers
+
+Choose your preferred package manager to install Greenseed:
+
+<CodeGroup>
+```bash npm
+npm install greenseed
+```
+
+```bash yarn
+yarn add greenseed
+```
+
+```bash pnpm
+pnpm add greenseed
+```
+
+```bash bun
+bun add greenseed
+```
+</CodeGroup>
+
+<Note>
+Greenseed is typically installed as a development dependency since it's primarily used for seeding development and test databases. To install as a dev dependency, add the `-D` or `--save-dev` flag.
+</Note>
+
+## Install as dev dependency
+
+If you only need Greenseed for development and testing:
+
+<CodeGroup>
+```bash npm
+npm install -D greenseed
+```
+
+```bash yarn
+yarn add -D greenseed
+```
+
+```bash pnpm
+pnpm add -D greenseed
+```
+
+```bash bun
+bun add -d greenseed
+```
+</CodeGroup>
+
+## Verify installation
+
+After installation, verify that Greenseed is available by running:
+
+```bash
+npx greenseed --version
+```
+
+You can also check the available commands:
+
+```bash
+npx greenseed --help
+```
+
+Expected output:
+```
+greenseed
+
+  Usage:
+    $ greenseed <command> [options]
+
+  Available Commands:
+    push    Seed the database from JSON files
+    init    Create a new seed configuration file
+
+  For more info, run any command with the `--help` flag:
+    $ greenseed push --help
+    $ greenseed init --help
+```
+
+## Dependencies
+
+Greenseed automatically installs the following dependencies:
+
+- **`postgres`** - High-performance PostgreSQL client for Node.js
+- **`dotenv`** - Loads environment variables from `.env` files
+- **`valibot`** - Schema validation for configuration files
+- **`sade`** - Lightweight CLI framework
+
+<Tip>
+No additional database drivers or configuration is needed. Greenseed works out of the box with PostgreSQL connection strings.
+</Tip>
+
+## Global installation
+
+For system-wide access to the `greenseed` command, you can install globally:
+
+<CodeGroup>
+```bash npm
+npm install -g greenseed
+```
+
+```bash yarn
+yarn global add greenseed
+```
+
+```bash pnpm
+pnpm add -g greenseed
+```
+
+```bash bun
+bun add -g greenseed
+```
+</CodeGroup>
+
+After global installation, you can use `greenseed` directly without `npx`:
+
+```bash
+greenseed push
+```
+
+<Warning>
+Global installations can cause version conflicts across projects. We recommend installing Greenseed locally per project and using `npx greenseed` instead.
+</Warning>
+
+## Running without installation
+
+You can run Greenseed directly without installing using `npx`:
+
+```bash
+npx greenseed init
+npx greenseed push
+```
+
+This is useful for one-off operations or when trying Greenseed before committing to installation.
+
+## Package scripts
+
+For convenient access, add Greenseed commands to your `package.json` scripts:
+
+```json package.json
+{
+  "scripts": {
+    "db:seed": "greenseed push",
+    "db:seed:init": "greenseed init"
+  }
+}
+```
+
+Then run with your package manager:
+
+<CodeGroup>
+```bash npm
+npm run db:seed
+```
+
+```bash yarn
+yarn db:seed
+```
+
+```bash pnpm
+pnpm db:seed
+```
+
+```bash bun
+bun db:seed
+```
+</CodeGroup>
+
+## Environment setup
+
+Greenseed requires a PostgreSQL connection string in an environment variable. Create a `.env` file in your project root:
+
+```bash .env
+DATABASE_URL=postgresql://user:password@localhost:5432/mydb
+```
+
+<Note>
+The environment variable name is configurable in `seed.config.json`. By default, Greenseed looks for `DATABASE_URL`.
+</Note>
+
+## Next steps
+
+Now that Greenseed is installed, you're ready to:
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Follow the quickstart guide to seed your first database
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/overview">
+    Learn how to configure Greenseed for your schema
+  </Card>
+</CardGroup>
